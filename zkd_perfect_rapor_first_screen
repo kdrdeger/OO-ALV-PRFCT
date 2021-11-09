@@ -1,0 +1,24 @@
+REPORT zkd_rapor_perfect_form.
+
+TABLES: sflight.
+
+INCLUDE zkd_rapor_perfect_form_top.
+INCLUDE zkd_rapor_perfect_form_cls.
+INCLUDE zkd_rapor_perfect_form_mdl.
+
+
+INITIALIZATION.
+
+  CREATE OBJECT go_main.
+
+AT SELECTION-SCREEN OUTPUT.
+
+  go_main->set_screen( ).
+
+START-OF-SELECTION.
+
+  go_main->get_data( ).
+
+END-OF-SELECTION.
+
+  CALL SCREEN 0100.
