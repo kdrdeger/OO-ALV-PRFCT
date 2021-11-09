@@ -1,0 +1,274 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZKD_RAPOR_PERFECT_FORM_CLS
+*&---------------------------------------------------------------------*
+CLASS lcl_main DEFINITION.
+  PUBLIC SECTION.
+
+    METHODS:
+      get_data,
+      display_alv,
+      user_command
+        IMPORTING iv_ucomm TYPE syst_ucomm,
+      set_screen.
+
+
+    DATA:
+      mo_grid    TYPE REF TO cl_gui_alv_grid,
+      mt_alv     TYPE TABLE OF zkd_s_rapor_perfect_form,
+      mt_fcat    TYPE lvc_t_fcat,
+      ms_variant TYPE disvariant,
+      mt_exclude TYPE ui_functions,
+      ms_exclude TYPE ui_func,
+      ms_layout  TYPE lvc_s_layo,
+      ms_stable  TYPE lvc_s_stbl,
+      mt_return  TYPE TABLE OF bapiret2,
+      mo_event   TYPE REF TO lcl_main.
+
+*      EDÝTTABLE.
+
+
+  PROTECTED SECTION.
+
+    METHODS:
+      build_fcat,
+      set_layout,
+      change_toolbar,
+      show_message
+        IMPORTING VALUE(it_message) TYPE bapirettab,
+      refresh
+        IMPORTING io_grid TYPE REF TO cl_gui_alv_grid.
+*      handle_hotspot_click
+*        FOR EVENT hotspot_click OF cl_gui_alv_grid
+*        IMPORTING e_row_id e_column_id es_row_no.
+
+ENDCLASS.
+
+CLASS lcl_main IMPLEMENTATION.
+
+  METHOD get_data.
+    SELECT DISTINCT s1~carrid,
+                    s1~connid,
+                    s1~fldate,
+                    s1~price,
+                    s1~planetype,
+                    s2~countryfr,
+                    s2~cityfrom,
+                    s2~countryto,
+                    s2~distance
+      FROM sflight          AS s1
+      LEFT OUTER JOIN spfli AS s2 ON s2~carrid EQ s1~carrid
+      WHERE s1~carrid             IN @s_carrid
+      INTO TABLE @mt_alv.
+
+
+
+  ENDMETHOD.
+
+  METHOD build_fcat.
+
+    CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+      EXPORTING
+        i_structure_name       = 'ZKD_S_RAPOR_PERFECT_FORM'
+        i_client_never_display = 'X'
+        i_bypassing_buffer     = 'X'
+      CHANGING
+        ct_fieldcat            = mt_fcat
+      EXCEPTIONS
+        inconsistent_interface = 1
+        program_error          = 2.
+    IF sy-subrc EQ 0.
+
+      LOOP AT mt_fcat ASSIGNING FIELD-SYMBOL(<fs_fcat>).
+
+        IF <fs_fcat>-fieldname EQ 'CARRID'.
+          <fs_fcat>-scrtext_s = 'H.Y.Sirker'.
+          <fs_fcat>-scrtext_m = <fs_fcat>-scrtext_l = <fs_fcat>-reptext = 'Hava Yolu Þirketi'.
+          <fs_fcat>-emphasize = 'C310'.
+        ENDIF.
+
+        IF <fs_fcat>-fieldname EQ 'CONNID'.
+          <fs_fcat>-scrtext_s = 'Uçuþ.No'.
+          <fs_fcat>-scrtext_m = <fs_fcat>-scrtext_l = <fs_fcat>-reptext = 'Uçuþ Numarasý'.
+          <fs_fcat>-emphasize = 'C410'.
+        ENDIF.
+
+        IF <fs_fcat>-fieldname EQ 'FLDATE'.
+          <fs_fcat>-scrtext_s = 'Uçuþ.Tah'.
+          <fs_fcat>-scrtext_m = <fs_fcat>-scrtext_l = <fs_fcat>-reptext = 'Uçuþ Tarihi'.
+          <fs_fcat>-emphasize = 'C510'.
+        ENDIF.
+
+        IF <fs_fcat>-fieldname EQ 'PRICE'.
+          <fs_fcat>-scrtext_s = <fs_fcat>-scrtext_m = <fs_fcat>-scrtext_l = <fs_fcat>-reptext = 'Fiyatý'.
+          <fs_fcat>-emphasize = 'C610'.
+          <fs_fcat>-do_sum = 'X'.
+        ENDIF.
+
+        IF <fs_fcat>-fieldname EQ 'PLANETYPE'.
+          <fs_fcat>-scrtext_s = <fs_fcat>-scrtext_m = <fs_fcat>-scrtext_l = <fs_fcat>-reptext = 'Uçak Tipi'.
+          <fs_fcat>-emphasize = 'C710'.
+        ENDIF.
+
+        IF <fs_fcat>-fieldname EQ 'COUNTRYFR'.
+          <fs_fcat>-scrtext_s = <fs_fcat>-scrtext_m = <fs_fcat>-scrtext_l = <fs_fcat>-reptext = 'Ülke'.
+          <fs_fcat>-emphasize = 'C110'.
+        ENDIF.
+
+        IF <fs_fcat>-fieldname EQ 'CITYFROM'.
+          <fs_fcat>-scrtext_s = 'KakkýþÞ.'.
+          <fs_fcat>-scrtext_m = <fs_fcat>-scrtext_l = <fs_fcat>-reptext = 'Kalkýþ Þehri'.
+          <fs_fcat>-emphasize = 'C210'.
+        ENDIF.
+
+        IF <fs_fcat>-fieldname EQ 'COUNTRYTO'.
+          <fs_fcat>-scrtext_s = 'ÜlkeAn.'.
+          <fs_fcat>-scrtext_m = <fs_fcat>-scrtext_l = <fs_fcat>-reptext = 'Ülke Anahtarý'.
+          <fs_fcat>-emphasize = 'C510'.
+        ENDIF.
+
+        IF <fs_fcat>-fieldname EQ 'DISTANCE'.
+          <fs_fcat>-scrtext_s = <fs_fcat>-scrtext_m = <fs_fcat>-scrtext_l = <fs_fcat>-reptext = 'Mesafe'.
+          <fs_fcat>-emphasize = 'C110'.
+        ENDIF.
+
+        IF p_btn1 EQ 'X'.
+          IF <fs_fcat>-fieldname eq 'CARRID'   or  <fs_fcat>-fieldname eq 'CONNID'
+            or <fs_fcat>-fieldname  eq 'FLDATE' or <fs_fcat>-fieldname eq 'PRICE'
+            or <fs_fcat>-fieldname  eq 'PLANETYPE'.
+            <fs_fcat>-no_out = 'X'.
+            ENDIF.
+
+            ELSEIF p_btn1 eq 'X'.
+          IF <fs_fcat>-fieldname eq 'CARRID'   or  <fs_fcat>-fieldname eq 'CONNID'
+            or <fs_fcat>-fieldname  eq 'FLDATE' or <fs_fcat>-fieldname eq 'PRICE'
+            or <fs_fcat>-fieldname  eq 'PLANETYPE' or <fs_fcat>-fieldname eq 'COUNTRYFR'
+            or <fs_fcat>-fieldname eq 'CITYFROM' or <fs_fcat>-fieldname eq 'COUNTRYTO'
+            or <fs_fcat>-fieldname eq 'DISTANCE' .
+             <fs_fcat>-no_out = 'X'.
+            ENDIF.
+            ENDIF.
+
+      ENDLOOP.
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD set_screen.
+
+    LOOP AT SCREEN.
+      IF p_btn1 EQ 'X'.
+        IF screen-group1 EQ 'B1'.
+          screen-active = 1.
+        ELSEIF screen-group1 EQ 'B2'.
+          screen-active = 0.
+        ENDIF.
+      ELSEIF p_btn2 EQ 'X'..
+        IF screen-group1 EQ 'B1'.
+          screen-active = 0.
+        ELSEIF screen-group1 EQ 'B2'.
+          screen-active = 1.
+        ENDIF.
+      ENDIF.
+      MODIFY SCREEN.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+
+  METHOD set_layout.
+
+    ms_layout-zebra      = 'X'.
+    ms_layout-sel_mode   = 'D'.
+    ms_layout-cwidth_opt = abap_true.
+*    ms_layout-col_opt    = abap_true.
+
+  ENDMETHOD.
+
+  METHOD change_toolbar.
+    ms_exclude = cl_gui_alv_grid=>mc_fc_loc_append_row .
+    APPEND ms_exclude TO mt_exclude.
+    ms_exclude = cl_gui_alv_grid=>mc_fc_loc_insert_row .
+    APPEND ms_exclude TO mt_exclude.
+    ms_exclude = cl_gui_alv_grid=>mc_fc_loc_delete_row .
+    APPEND ms_exclude TO mt_exclude.
+    ms_exclude = cl_gui_alv_grid=>mc_fc_loc_copy .
+    APPEND ms_exclude TO mt_exclude.
+    ms_exclude = cl_gui_alv_grid=>mc_fc_loc_copy_row .
+    APPEND ms_exclude TO mt_exclude.
+    ms_exclude = cl_gui_alv_grid=>mc_fc_loc_cut.
+    APPEND ms_exclude TO mt_exclude.
+    ms_exclude = cl_gui_alv_grid=>mc_fc_loc_paste.
+    APPEND ms_exclude TO mt_exclude.
+    ms_exclude = cl_gui_alv_grid=>mc_fc_loc_paste_new_row.
+    APPEND ms_exclude TO mt_exclude.
+    ms_exclude = cl_gui_alv_grid=>mc_fc_loc_undo.
+    APPEND ms_exclude TO mt_exclude.
+    ms_exclude = cl_gui_alv_grid=>mc_fc_loc_move_row.
+    APPEND ms_exclude TO mt_exclude.
+  ENDMETHOD.
+
+  METHOD display_alv.
+    IF mo_grid IS INITIAL.
+      me->build_fcat( ).
+      me->set_layout( ).
+      me->change_toolbar( ).
+
+      CREATE OBJECT mo_grid
+        EXPORTING
+          i_parent = cl_gui_custom_container=>screen0.
+
+      CREATE OBJECT me->mo_event.
+*      SET HANDLER me->mo_event->handle_hotspot_click FOR me->mo_grid.
+*      SET HANDLER me->mo_event->handle_hotspot_click FOR mo_grid.
+
+      CALL METHOD mo_grid->set_table_for_first_display
+        EXPORTING
+          is_variant                    = ms_variant
+          is_layout                     = ms_layout
+          i_save                        = 'A'
+          it_toolbar_excluding          = mt_exclude
+        CHANGING
+          it_outtab                     = me->mt_alv
+*         it_outtab                     = gt_alv
+          it_fieldcatalog               = me->mt_fcat
+        EXCEPTIONS
+          invalid_parameter_combination = 1
+          program_error                 = 2
+          too_many_lines                = 3
+          OTHERS                        = 4.
+
+*      SET HANDLER me->mo_event->handle_hotspot_click FOR mo_grid.
+    ELSE.
+      me->refresh( io_grid = mo_grid ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD refresh.
+    ms_stable-row = abap_true.
+    ms_stable-col = abap_true.
+    io_grid->refresh_table_display(
+      EXPORTING
+        is_stable      = ms_stable
+        i_soft_refresh = ''
+      EXCEPTIONS
+        finished       = 1
+        OTHERS         = 2 ).
+  ENDMETHOD.
+
+*  METHOD set_screen.
+**    LOOP AT SCREEN.
+**      MODIFY SCREEN.
+**    ENDLOOP.
+*  ENDMETHOD.
+
+  METHOD show_message.
+    cl_rmsl_message=>display( it_message ).
+  ENDMETHOD.
+
+  METHOD user_command.
+
+  ENDMETHOD.
+
+ENDCLASS.
